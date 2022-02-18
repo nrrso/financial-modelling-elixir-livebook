@@ -1,0 +1,135 @@
+# Financial Modelling in Elixir and the quickfs.net API
+
+## Intro
+
+This livebook is a demonstration on how to start on financial modelling with elixir. Livebook 
+specifically lends itself perfectly for this usecase as it easy to prototype a financial model
+while having access to a feature rich elixir experience plus some added benefits like the 
+out of the box visualization capabilities with Vega-Lite. 
+To access financial data needed for financial analysis and modelling, I have created the following
+elixir package that wraps the quickfs.net API for added convenience: 
+https://github.com/nrrso/ex_quickfs \
+This livebook shows how to setup and use the package as well as providing some inspiration on 
+potential usecases.
+
+![Fancy Chart Image](https://images.unsplash.com/photo-1591696205602-2f950c417cb9?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80)
+
+When working with financial data, keep these common misconceptions about money in mind:
+https://gist.github.com/rgs/6509585
+
+## Setup
+
+```elixir
+Mix.install([
+  {:quick_fs_public_api, git: "git://github.com/nrrso/ex_quickfs.git"},
+  {:jason, "~> 1.2"},
+  {:kino, "~> 0.5.0"},
+  {:vega_lite, "~> 0.1.2"},
+  {:financials, "~> 0.1.0"},
+  {:correlations, "~> 0.1.1"},
+  {:ex_money, "~> 5.8"},
+  {:crawly, "~> 0.13.0"}
+])
+```
+
+```elixir
+alias VegaLite, as: Vl
+```
+
+```elixir
+api_key = Kino.Input.password("Your API Key")
+```
+
+```elixir
+Application.put_env(:quick_fs_public_api, :api_key, "#{Kino.Input.read(api_key)}")
+```
+
+Initialize the API Client Object with the snippet below:
+
+```elixir
+qfsConn = QuickFSPublicAPI.Connection.new()
+```
+
+<!-- livebook:{"branch_parent_index":1} -->
+
+## Querying the API
+
+The below snippet is just for convenience. It creates an input field, which value we can grab later.
+
+```elixir
+symbol = Kino.Input.text("Enter Stock Symbol")
+```
+
+Let's make a call to the quickfs API and retrieve all datapoints for the specified stock.
+
+```elixir
+{_, resp} =
+  QuickFSPublicAPI.Api.Datapoints.data_all_data_symbol_get(
+    qfsConn,
+    "#{Kino.Input.read(symbol)}"
+  )
+
+data = Jason.decode!(resp.body)
+```
+
+Let's get a specific datapoint from the API response.
+
+```elixir
+ev2s = data["data"]["financials"]["annual"]["enterprise_value_to_sales"]
+
+stockMeta = data["data"]["metadata"]
+```
+
+The snippet below is an example of how to visualize a datapoint provided by the quickfs API.
+
+```elixir
+IO.puts(stockMeta["name"])
+IO.puts("Enterprise value-to-sales")
+
+Vl.new(width: 400, height: 300)
+|> Vl.data_from_series(year: 2002..2022, ev: ev2s)
+|> Vl.mark(:line)
+|> Vl.encode_field(:x, "year", type: :nominal)
+|> Vl.encode_field(:y, "ev", type: :quantitative)
+```
+
+Enterprise value-to-sales (EV/sales) is a financial valuation measure that compares 
+the enterprise value (EV) of a company to its annual sales. The EV/sales multiple gives 
+investors a quantifiable metric of how to value a company based on its sales while 
+taking account of both the company's equity and debt. \
+See: https://www.investopedia.com/terms/e/enterprisevaluesales.asp
+$$
+EV/Sales = \frac{MC+D-CC}{Annual Sales}
+$$
+MC = Market cap \
+D = Debt \
+CC = Cash and cash equivalents
+
+<!-- livebook:{"branch_parent_index":1} -->
+
+## API Usage Quota
+
+Use this snippet, to monitor your API usage. This section is branched and will 
+only be stale if the "Setup" section has been changed.
+
+```elixir
+{_, usage} = QuickFSPublicAPI.Api.UsageHistory.usage_get(qfsConn)
+
+usageData = usage.usage
+
+IO.puts("Current API Usage (Daily)")
+
+Vl.new()
+|> Vl.data_from_series(data: [usageData.quota.used, usageData.quota.remaining])
+|> Vl.encode_field(:theta, "data", type: :quantitative, stack: true)
+|> Vl.encode_field(:radius, "data", scale: [type: :sqrt, zero: true, range_min: 20])
+|> Vl.encode_field(:color, "data", type: :nominal, legend: nil)
+|> Vl.layers([
+  Vl.new()
+  |> Vl.mark(:arc, inner_radius: 20, stroke: "#fff"),
+  Vl.new()
+  |> Vl.mark(:text, radius_offset: 10)
+  |> Vl.encode_field(:text, "data", type: :quantitative)
+])
+|> Vl.config(view: [stroke: nil])
+```
