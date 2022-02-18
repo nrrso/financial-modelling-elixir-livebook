@@ -1,4 +1,10 @@
+[![forthebadge](https://forthebadge.com/images/badges/made-with-elixir.svg)](https://forthebadge.com)
+
 # Financial Modelling with Elixir in Livebook (Example)
+
+You can click the button below to run the example in livebook:
+
+[![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fraw.githubusercontent.com%2Fnrrso%2Ffinancial-modelling-elixir-livebook%2Fmain%2Fnotebook.livemd)
 
 This repository contains a livebook example that shows how
 to use livebook and elixir to retrieve financial data on a 
